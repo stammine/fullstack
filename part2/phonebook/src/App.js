@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import personService from './services/persons';
 
+const Notification = ({ message, isError }) => {
+  if (message === null || message === undefined) {
+    return null
+  }
+
+  return (
+    <div className={isError ? 'errorNotification' : 'notification'} >
+      {message}
+    </div>
+  )
+}
+
 const SearchFilter = ({searchTerm, updateSearch}) => {
     return (
         <div>
@@ -14,10 +26,10 @@ const PersonDetails = ({person, deleteAndUpdate}) => {
       const confirmed = window.confirm(`Delete ${person.name}?`);
       if (confirmed) {
         const id = person.id
-        deleteAndUpdate(id)
+        deleteAndUpdate(id, person.name)
       }
     }
-    return <div>{person.name} {person.number} <button onClick={deletePerson} >Delete</button></div>
+    return <div className="person" >{person.name} {person.number} <button onClick={deletePerson} >Delete</button></div>
 }
 
 const PersonList = ({persons, searchTerm, deleteAndUpdate}) => {
@@ -38,6 +50,8 @@ const App = () => {
   const [ newName, setNewName ] = useState('')
   const [ newNumber, setNewNumber ] = useState('')
   const [ searchTerm, setSearchTerm ] = useState('')
+  const [ message, setMessage ] = useState()
+  const [ errorMessage, setErrorMessage ] = useState()
 
   useEffect(() => {
     const eventHandler = response => {
@@ -49,6 +63,22 @@ const App = () => {
   const updateNewName = (event) => setNewName(event.target.value)
   const updateNewNumber = (event) => setNewNumber(event.target.value)
   const updateSearch = (event) => setSearchTerm(event.target.value)
+
+  const success = message => {
+    setNewName('')
+    setNewNumber('')
+    setMessage(message)
+    setTimeout(() => {
+      setMessage(null)
+    }, 5000)
+  };
+
+  const failed = message => {
+    setErrorMessage(message)
+    setTimeout(() => {
+      setErrorMessage(null)
+    }, 5000)
+  };
 
   const addNewName = (event) => {
       event.preventDefault()
@@ -67,31 +97,34 @@ const App = () => {
               return person
             })]
             setPersons(updatedPersons)
-            setNewName('')
-            setNewNumber('')
+            success(`Updated '${newItem.name}'.`)
           }).catch(err => console.error(err))
         }
       } else {
         personService.create(newItem).then((createdItem) => {
           const newNames = persons.concat([createdItem])
           setPersons(newNames)
-          setNewName('')
-          setNewNumber('')
+          success(`Added '${newItem.name}'.`)
         }).catch(err => console.error(err))
       }
   }
 
-  const deleteAndUpdate = (id) => {
+  const deleteAndUpdate = (id, name) => {
     personService.remove(id).then(() => {
       const newPersons = [...persons.filter(per => per.id !== id)]
       setPersons(newPersons)
-    }).catch(err => console.error(err))
+    }).catch(err => {
+      failed(`Information of '${name}' has already been removed from server.`);
+      console.error(err)
+    })
   }
 
   return (
     <div>
       <h2>Phonebook</h2>
-        <SearchFilter searchTerm={searchTerm} updateSearch={updateSearch} />
+      <Notification message={message} isError={false} />
+      <Notification message={errorMessage} isError={true} />
+      <SearchFilter searchTerm={searchTerm} updateSearch={updateSearch} />
       <h2>add a new</h2>
       <form onSubmit={addNewName}>
         <div>
